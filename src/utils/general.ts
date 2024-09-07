@@ -1,5 +1,3 @@
-import { cleanUpBotMessage } from "./bot";
-
 export function formatToInternational(numberToFormat: string | number) {
   numberToFormat = Number(Number(numberToFormat).toFixed(2));
   const formattedNumber = new Intl.NumberFormat("en-US").format(numberToFormat);
@@ -39,10 +37,6 @@ export function formatNumber(num: string | number) {
   });
 
   return formatter.format(num);
-}
-
-export function formatM2Number(num: string | number) {
-  return cleanUpBotMessage(formatNumber(num));
 }
 
 export function roundUpToDecimalPlace(
