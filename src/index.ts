@@ -54,7 +54,10 @@ async function executeLoanCollateralSell(mortage: StoredLoan) {
 }
 
 async function checkIfPastDue(mortage: StoredLoan) {
-  const { id, loanDueAt } = mortage;
+  const { id, loanDueAt, repaymentStatus } = mortage;
+
+  if (repaymentStatus !== "PENDING") return;
+
   const dueDatePassed =
     moment.now() / 1e3 > (loanDueAt?.seconds || 99999999999);
 
