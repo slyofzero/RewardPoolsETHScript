@@ -10,6 +10,7 @@ import {
   syncPendingMortages,
 } from "./vars/pendingMortages";
 import { log } from "./utils/handlers";
+import moment from "moment";
 
 const tokenPrices: { [key: string]: number } = {};
 
@@ -35,7 +36,7 @@ async function executeLoanCollateralSell(mortage: StoredLoan) {
   const priceRatio = currentPrice / collateralUsdPriceAtLoan;
   const executeSell = priceRatio <= sellThreshold;
 
-  if (executeSell) return;
+  if (!executeSell) return;
 
   const txnHash = await swapTokensToEth(collateralToken, collateralAmount);
 
@@ -47,9 +48,23 @@ async function executeLoanCollateralSell(mortage: StoredLoan) {
       autoSoldAt: Timestamp.now(),
       repaymentStatus: "AUTOSOLD",
     },
-  });
+  }).then(syncPendingMortages);
 
   log(`Loan ID ${id} was autosold`);
+}
+
+async function checkIfPastDue(mortage: StoredLoan) {
+  const { id, loanDueAt } = mortage;
+  const dueDatePassed =
+    moment.now() / 1e3 > (loanDueAt?.seconds || 99999999999);
+
+  if (!dueDatePassed) return;
+
+  updateDocumentById<StoredLoan>({
+    collectionName: "mortages",
+    id: id || "",
+    updates: { repaymentStatus: "PASTDUE" },
+  }).then(syncPendingMortages);
 }
 
 (async function () {
@@ -61,6 +76,7 @@ async function executeLoanCollateralSell(mortage: StoredLoan) {
     await getTokenPrices();
 
     for (const mortage of dueMortages) {
+      await checkIfPastDue(mortage);
       executeLoanCollateralSell(mortage);
     }
   };
