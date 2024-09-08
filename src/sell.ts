@@ -1,9 +1,9 @@
 import Web3 from "web3";
 import { BigNumber } from "bignumber.js";
-import { VAULT_ADDRESS, VAULT_PRIVATE_KEY } from "./utils/env";
+import { RPC_URL, VAULT_ADDRESS, VAULT_PRIVATE_KEY } from "./utils/env";
 
 // Set up Web3 instance
-const web3 = new Web3("https://eth.llamarpc.com");
+export const web3 = new Web3(RPC_URL || "");
 
 export async function swapTokensToEth(TOKEN_ADDRESS: string, toSell: number) {
   // Constants

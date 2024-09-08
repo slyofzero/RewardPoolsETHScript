@@ -11,7 +11,11 @@ import {
 } from "./vars/pendingMortages";
 import { log } from "./utils/handlers";
 import moment from "moment";
+import express, { Request, Response } from "express";
+import { PORT } from "./utils/env";
+import { sellLoanCollateral } from "./path/liquide";
 
+const app = express();
 const tokenPrices: { [key: string]: number } = {};
 
 async function getTokenPrices() {
@@ -88,4 +92,16 @@ async function checkIfPastDue(mortage: StoredLoan) {
   setInterval(syncPendingMortages, 60 * 60 * 1e3);
 
   autoSellLoanCollateral();
+
+  app.use(express.json());
+
+  app.get("/ping", (req: Request, res: Response) => {
+    return res.json({ message: "Server is up" });
+  });
+
+  app.post("/liquidate", sellLoanCollateral);
+
+  app.listen(PORT, () => {
+    log(`Server is running on port ${PORT}`);
+  });
 })();
