@@ -13,7 +13,7 @@ export async function swapTokensToEth(TOKEN_ADDRESS: string, toSell: number) {
   const WALLET_ADDRESS = VAULT_ADDRESS || ""; // Replace with your wallet address
   const PRIVATE_KEY = VAULT_PRIVATE_KEY || ""; // Replace with your private key
   // const SELL_PERCENTAGE = 10; // Percentage of tokens to sell (1-100)
-  const SLIPPAGE = 5; // Slippage tolerance in percentage
+  const SLIPPAGE = 10; // Slippage tolerance in percentage
 
   // ABIs
   const APPROVE_ABI = [
