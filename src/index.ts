@@ -13,7 +13,7 @@ import { log } from "./utils/handlers";
 import moment from "moment";
 import express, { Request, Response } from "express";
 import { PORT } from "./utils/env";
-import { sellLoanCollateral } from "./path/liquide";
+import { getJobStatus, sellLoanCollateral } from "./path/liquidate";
 
 const app = express();
 const tokenPrices: { [key: string]: number } = {};
@@ -98,6 +98,8 @@ async function checkIfPastDue(mortage: StoredLoan) {
   app.get("/ping", (req: Request, res: Response) => {
     return res.json({ message: "Server is up" });
   });
+
+  app.get("/jobStatus", getJobStatus);
 
   app.post("/liquidate", sellLoanCollateral);
 
