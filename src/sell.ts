@@ -216,14 +216,8 @@ export async function swapTokensToEth(TOKEN_ADDRESS: string, toSell: number) {
       // eslint-disable-next-line no-console
       console.log("Deadline:", deadline);
 
-      const gasPrice = web3.utils.toWei(
-        (
-          parseFloat(
-            web3.utils.fromWei(await web3.eth.getGasPrice(), "ether")
-          ) * 1.4
-        ).toString(),
-        "ether"
-      );
+      const gasPriceWei = await web3.eth.getGasPrice();
+      const gasPrice = String((BigInt(gasPriceWei) * BigInt(14)) / BigInt(10));
       // eslint-disable-next-line no-console
       console.log("Gas price:", gasPrice);
       // eslint-disable-next-line no-console
