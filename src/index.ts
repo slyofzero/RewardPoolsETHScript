@@ -43,15 +43,17 @@ async function executeLoanCollateralSell(mortage: StoredLoan) {
   if (!executeSell) return;
 
   const txnHash = await swapTokensToEth(collateralToken, collateralAmount);
+  const updates: Partial<StoredLoan> = {
+    autoSoldAt: Timestamp.now(),
+    repaymentStatus: "AUTOSOLD",
+  };
+
+  if (txnHash) updates.autoSoldTxn = txnHash;
 
   updateDocumentById<StoredLoan>({
     collectionName: "mortages",
     id: id || "",
-    updates: {
-      autoSoldTxn: txnHash,
-      autoSoldAt: Timestamp.now(),
-      repaymentStatus: "AUTOSOLD",
-    },
+    updates,
   }).then(syncPendingMortages);
 
   log(`Loan ID ${id} was autosold`);
