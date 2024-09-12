@@ -50,11 +50,12 @@ async function executeLoanCollateralSell(mortage: StoredLoan) {
 
   if (txnHash) updates.autoSoldTxn = txnHash;
 
-  updateDocumentById<StoredLoan>({
+  await updateDocumentById<StoredLoan>({
     collectionName: "mortages",
     id: id || "",
     updates,
-  }).then(syncPendingMortages);
+  });
+  await syncPendingMortages();
 
   log(`Loan ID ${id} was autosold`);
 }
