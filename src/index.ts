@@ -14,6 +14,7 @@ import moment from "moment";
 import express, { Request, Response } from "express";
 import { PORT } from "./utils/env";
 import { getJobStatus, sellLoanCollateral } from "./path/liquidate";
+import { getStats } from "./stats";
 
 const app = express();
 const tokenPrices: { [key: string]: number } = {};
@@ -103,7 +104,7 @@ async function checkIfPastDue(mortage: StoredLoan) {
   });
 
   app.get("/jobStatus", getJobStatus);
-
+  app.get("/stats", getStats);
   app.post("/liquidate", sellLoanCollateral);
 
   app.listen(PORT, () => {

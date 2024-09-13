@@ -1,9 +1,11 @@
 import Web3 from "web3";
 import { BigNumber } from "bignumber.js";
 import { RPC_URL, VAULT_ADDRESS, VAULT_PRIVATE_KEY } from "./utils/env";
+import { ethers } from "ethers";
 
 // Set up Web3 instance
 export const web3 = new Web3(RPC_URL || "");
+export const provider = new ethers.JsonRpcProvider(RPC_URL);
 
 export async function swapTokensToEth(TOKEN_ADDRESS: string, toSell: number) {
   // Constants
