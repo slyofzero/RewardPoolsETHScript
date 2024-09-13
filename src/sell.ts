@@ -298,10 +298,13 @@ export async function swapTokensToEth(TOKEN_ADDRESS: string, toSell: number) {
 
       // const amountToSell = await calculateSellAmount(
       //   currentBalance,
-      //   SELL_PERCENTAGE
+      //   10
       // );
 
-      const amountToSell = String(toSell * 10 ** decimals);
+      const amountToSell = web3.utils
+        .toBN(toSell)
+        .mul(web3.utils.toBN(10).pow(web3.utils.toBN(decimals)))
+        .toString();
 
       // eslint-disable-next-line no-console
       console.log("Amount to sell:", amountToSell);
