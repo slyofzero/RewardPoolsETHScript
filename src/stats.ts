@@ -95,25 +95,45 @@ async function getTokensHeldCapital() {
 
   let tokensEthCapital = 0;
 
-  for (const token in balances) {
-    try {
-      if (balances[token] > 0) {
-        const data = await apiFetcher<PairsData>(
-          `https://api.dexscreener.com/latest/dex/tokens/${token}`
-        );
+  const pairs = await Promise.all(
+    Object.keys(balances).map((token) =>
+      apiFetcher<PairsData>(
+        `https://api.dexscreener.com/latest/dex/tokens/${token}`
+      )
+    )
+  );
 
-        const WETH_pair = data?.data.pairs?.find(
-          ({ quoteToken }) =>
-            quoteToken.address === "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
-        );
+  for (const pair of pairs) {
+    const WETH_pair = pair?.data?.pairs?.find(
+      ({ quoteToken }) =>
+        quoteToken.address === "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+    );
+    const token = WETH_pair?.baseToken.address.toLowerCase();
+    if (!token || !WETH_pair) continue;
 
-        const tokenValue = Number(WETH_pair?.priceNative) * balances[token];
-        if (!isNaN(tokenValue)) tokensEthCapital += tokenValue;
-      }
-    } catch (error) {
-      //
-    }
+    const tokenValue = Number(WETH_pair?.priceNative) * balances[token];
+    if (!isNaN(tokenValue)) tokensEthCapital += tokenValue;
   }
+
+  // for (const token in balances) {
+  //   try {
+  //     if (balances[token] > 0) {
+  //       const data = await apiFetcher<PairsData>(
+  //         `https://api.dexscreener.com/latest/dex/tokens/${token}`
+  //       );
+
+  //       const WETH_pair = data?.data.pairs?.find(
+  //         ({ quoteToken }) =>
+  //           quoteToken.address === "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+  //       );
+
+  //       const tokenValue = Number(WETH_pair?.priceNative) * balances[token];
+  //       if (!isNaN(tokenValue)) tokensEthCapital += tokenValue;
+  //     }
+  //   } catch (error) {
+  //     //
+  //   }
+  // }
 
   return tokensEthCapital;
 }
