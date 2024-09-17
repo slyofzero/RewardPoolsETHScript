@@ -24,4 +24,5 @@ export interface StoredLoan {
   liquidateTxn?: string;
   refundTxn?: string;
   liquidatedAt?: Timestamp;
+  ethRepaidSoFar?: number;
 }
