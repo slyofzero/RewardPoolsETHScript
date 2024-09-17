@@ -1,8 +1,11 @@
 import { Request, Response } from "express";
 import { provider, web3 } from "./sell";
 import { mortages, undueMortages } from "./vars/pendingMortages";
-import { VAULT_ADDRESS } from "./utils/env";
-import { StoredLoan } from "./types";
+import { ETHERSCAN_API_KEY, VAULT_ADDRESS } from "./utils/env";
+import { PairsData, StoredLoan } from "./types";
+import { apiFetcher } from "./utils/api";
+import { ethers } from "ethers";
+import { roundToSixDecimals } from "./utils/general";
 
 const swapEvent =
   "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822";
@@ -61,6 +64,60 @@ async function getInterestEarned() {
   return totalInterestEarned;
 }
 
+async function getTokensHeldCapital() {
+  const tokenTxs =
+    await apiFetcher(`https://api.etherscan.io/api?module=account&action=tokentx&address=${VAULT_ADDRESS}&startblock=0&endblock=999999999&sort=asc&apikey=${ETHERSCAN_API_KEY}
+`);
+  const balances: { [key: string]: number } = {};
+  // @ts-expect-error weee
+  const txns = tokenTxs?.data.result as any[];
+
+  txns?.forEach((tx) => {
+    const tokenAddress = tx.contractAddress;
+    const tokenDecimals = parseInt(tx.tokenDecimal);
+
+    const value = roundToSixDecimals(
+      ethers.formatUnits(tx.value, tokenDecimals)
+    );
+
+    const isSent = tx.from.toLowerCase() === VAULT_ADDRESS?.toLowerCase();
+
+    if (!balances[tokenAddress]) {
+      balances[tokenAddress] = 0;
+    }
+
+    if (isSent) {
+      balances[tokenAddress] -= value;
+    } else {
+      balances[tokenAddress] += value;
+    }
+  });
+
+  let tokensEthCapital = 0;
+
+  for (const token in balances) {
+    try {
+      if (balances[token] > 0) {
+        const data = await apiFetcher<PairsData>(
+          `https://api.dexscreener.com/latest/dex/tokens/${token}`
+        );
+
+        const WETH_pair = data?.data.pairs?.find(
+          ({ quoteToken }) =>
+            quoteToken.address === "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+        );
+
+        const tokenValue = Number(WETH_pair?.priceNative) * balances[token];
+        if (!isNaN(tokenValue)) tokensEthCapital += tokenValue;
+      }
+    } catch (error) {
+      //
+    }
+  }
+
+  return tokensEthCapital;
+}
+
 // Polling endpoint to check job status
 export async function getStats(req: Request, res: Response) {
   const [balance, interestEarned] = await Promise.all([
@@ -69,7 +126,7 @@ export async function getStats(req: Request, res: Response) {
   ]);
 
   const vaultEth = Number(web3.utils.fromWei(String(balance)));
-  const tokensValue = 0;
+  const tokensValue = await getTokensHeldCapital();
   const loanCount = mortages.length;
   const loanValue = mortages.reduce(
     (prev, curr) =>

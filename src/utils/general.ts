@@ -72,3 +72,7 @@ export function isValidInviteLink(url: string) {
 export function floatToBigInt(num: number) {
   return BigInt(Math.floor(num));
 }
+
+export function roundToSixDecimals(num: string | number) {
+  return Number(parseFloat(Number(num).toFixed(6)));
+}
