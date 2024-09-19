@@ -3,7 +3,7 @@ import { updateDocumentById } from "./firebase";
 import { swapTokensToEth } from "./sell";
 import { PairsData, StoredLoan } from "./types";
 import { apiFetcher } from "./utils/api";
-import { sellThreshold } from "./utils/constants";
+import { sellThreshold, tokensToNotLiquidate } from "./utils/constants";
 import {
   collateralTokens,
   dueMortages,
@@ -39,9 +39,10 @@ async function executeLoanCollateralSell(mortage: StoredLoan) {
   const currentPrice = tokenPrices[collateralToken];
 
   const priceRatio = currentPrice / collateralUsdPriceAtLoan;
+  const isTokenAllowedToSell = !tokensToNotLiquidate.includes(collateralToken);
   const executeSell = priceRatio <= sellThreshold;
 
-  if (!executeSell) return;
+  if (!(executeSell && isTokenAllowedToSell)) return;
 
   const txnHash = await swapTokensToEth(collateralToken, collateralAmount);
   const updates: Partial<StoredLoan> = {
