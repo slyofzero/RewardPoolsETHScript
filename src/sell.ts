@@ -301,9 +301,7 @@ export async function swapTokensToEth(TOKEN_ADDRESS: string, toSell: number) {
       //   10
       // );
 
-      const amountToSell = ethers
-        .parseUnits(String(toSell), decimals)
-        .toString();
+      const amountToSell = web3.utils.toBN(toSell * 10 ** decimals).toString();
 
       // eslint-disable-next-line no-console
       console.log("Amount to sell:", amountToSell);
