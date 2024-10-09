@@ -1,2 +1,2 @@
-export * from "./pairsData";
-export * from "./storedLoan";
+export * from "./storedStakes";
+export * from "./storedPools";

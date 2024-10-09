@@ -1,114 +1,98 @@
 import { Timestamp } from "firebase-admin/firestore";
-import { updateDocumentById } from "./firebase";
-import { swapTokensToEth } from "./sell";
-import { PairsData, StoredLoan } from "./types";
-import { apiFetcher } from "./utils/api";
-import { sellThreshold, tokensToNotLiquidate } from "./utils/constants";
+import { pools, syncPools } from "./state";
+import { getDocument, updateDocumentById } from "./firebase";
+import { StoredPool, StoredStakes } from "./types";
 import {
-  collateralTokens,
-  dueMortages,
-  syncPendingMortages,
-} from "./vars/pendingMortages";
+  getEthBalance,
+  getTokenBalance,
+  transferEth,
+  transferTokens,
+} from "./utils/web3";
 import { log } from "./utils/handlers";
-import moment from "moment";
-import express, { Request, Response } from "express";
-import { PORT } from "./utils/env";
-import { getJobStatus, sellLoanCollateral } from "./path/liquidate";
-import { getStats } from "./stats";
-
-const app = express();
-const tokenPrices: { [key: string]: number } = {};
-
-async function getTokenPrices() {
-  for (const token of collateralTokens) {
-    const data = await apiFetcher<PairsData>(
-      `https://api.dexscreener.com/latest/dex/tokens/${token}`
-    );
-
-    const firstPair = data?.data.pairs.at(0);
-    if (!firstPair) continue;
-
-    const price = firstPair.priceUsd;
-    tokenPrices[token] = Number(price);
-  }
-}
-
-async function executeLoanCollateralSell(mortage: StoredLoan) {
-  const { id, collateralUsdPriceAtLoan, collateralToken, collateralAmount } =
-    mortage;
-  const currentPrice = tokenPrices[collateralToken];
-
-  const priceRatio = currentPrice / collateralUsdPriceAtLoan;
-  const isTokenAllowedToSell = !tokensToNotLiquidate.includes(collateralToken);
-  const executeSell = priceRatio <= sellThreshold;
-
-  if (!(executeSell && isTokenAllowedToSell)) return;
-
-  const txnHash = await swapTokensToEth(collateralToken, collateralAmount);
-  const updates: Partial<StoredLoan> = {
-    autoSoldAt: Timestamp.now(),
-    repaymentStatus: "AUTOSOLD",
-  };
-
-  if (txnHash) updates.autoSoldTxn = txnHash;
-
-  await updateDocumentById<StoredLoan>({
-    collectionName: "mortages",
-    id: id || "",
-    updates,
-  });
-  await syncPendingMortages();
-
-  log(`Loan ID ${id} was autosold`);
-}
-
-async function checkIfPastDue(mortage: StoredLoan) {
-  const { id, loanDueAt, repaymentStatus } = mortage;
-
-  if (repaymentStatus !== "PENDING") return;
-
-  const dueDatePassed =
-    moment.now() / 1e3 > (loanDueAt?.seconds || 99999999999);
-
-  if (!dueDatePassed) return;
-
-  updateDocumentById<StoredLoan>({
-    collectionName: "mortages",
-    id: id || "",
-    updates: { repaymentStatus: "PASTDUE" },
-  }).then(syncPendingMortages);
-}
 
 (async function () {
-  await Promise.all([syncPendingMortages()]);
+  await Promise.all([syncPools()]);
 
-  const autoSellLoanCollateral = async () => {
-    log("Checking for autosell conditions");
+  for (const poolData of pools) {
+    const { closesAt } = poolData;
+    const currentTimestamp = Timestamp.now();
 
-    await getTokenPrices();
+    if (currentTimestamp > closesAt) {
+      const poolId = poolData.id || "";
 
-    for (const mortage of dueMortages) {
-      await checkIfPastDue(mortage);
-      executeLoanCollateralSell(mortage);
+      const stakes = await getDocument<StoredStakes>({
+        collectionName: "stakes",
+        queries: [
+          ["pool", "==", poolId],
+          ["status", "==", "PENDING"],
+        ],
+      });
+
+      // Close the pool if all stakes have been rewarded
+      if (stakes.length === 0) {
+        const [poolBalance, remainingEthBalance] = await Promise.all([
+          getTokenBalance(poolData.pool, poolData.token),
+          getEthBalance(poolData.creator),
+        ]);
+
+        const rewardRefundTxn = await Promise.all([
+          transferTokens(
+            poolData.mnemonicPhrase,
+            poolData.creator,
+            poolData.token,
+            poolBalance
+          ),
+        ]);
+
+        log(`Pool ${poolId} reward refunded ${rewardRefundTxn}`);
+
+        const gasRefundTxn = await transferEth(
+          poolData.mnemonicPhrase,
+          remainingEthBalance,
+          poolData.creator
+        );
+
+        log(`Pool ${poolId} gas refunded ${gasRefundTxn}`);
+
+        if (rewardRefundTxn && gasRefundTxn) {
+          updateDocumentById<StoredPool>({
+            collectionName: "pools",
+            id: poolId,
+            updates: { status: "CLOSED" },
+          });
+
+          log(`Pool ${poolId} was closed`);
+          break;
+        }
+      }
+
+      // Reward the stake if it hasn't been rewarded yet
+      for (const stake of stakes) {
+        const reward = parseFloat((stake.amount * (poolData.reward / 100)).toFixed(4)) // prettier-ignore
+        const totalAmount = stake.amount + reward;
+
+        const txn = await transferTokens(
+          poolData.mnemonicPhrase,
+          stake.user,
+          poolData.token,
+          totalAmount
+        );
+
+        if (txn) {
+          updateDocumentById<StoredStakes>({
+            collectionName: "stakes",
+            id: stake.id || "",
+            updates: {
+              status: "REWARDED",
+              rewardTxn: txn,
+            },
+          });
+
+          log(
+            `Stake ${stake.id} for pool ${poolId} was rewarded ${totalAmount}`
+          );
+        }
+      }
     }
-  };
-
-  setInterval(autoSellLoanCollateral, 60 * 1e3);
-  setInterval(syncPendingMortages, 60 * 60 * 1e3);
-
-  autoSellLoanCollateral();
-
-  app.use(express.json());
-
-  app.get("/ping", (req: Request, res: Response) => {
-    return res.json({ message: "Server is up" });
-  });
-
-  app.get("/jobStatus", getJobStatus);
-  app.get("/stats", getStats);
-  app.post("/liquidate", sellLoanCollateral);
-
-  app.listen(PORT, () => {
-    log(`Server is running on port ${PORT}`);
-  });
+  }
 })();
