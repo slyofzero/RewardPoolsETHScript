@@ -10,7 +10,7 @@ import {
 } from "./utils/web3";
 import { log } from "./utils/handlers";
 
-(async function () {
+async function sendRewards() {
   await Promise.all([syncPools()]);
 
   for (const poolData of pools) {
@@ -95,4 +95,8 @@ import { log } from "./utils/handlers";
       }
     }
   }
+}
+
+(async function () {
+  setInterval(sendRewards, 10 * 60 * 1e3);
 })();
