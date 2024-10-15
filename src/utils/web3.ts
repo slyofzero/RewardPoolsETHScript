@@ -26,6 +26,7 @@ export async function getEthBalance(address: string): Promise<number> {
   try {
     const weiBalance = await provider.getBalance(address);
     const ethBalance = parseFloat(ethers.formatEther(weiBalance));
+
     return Math.round(ethBalance * 1e6) / 1e6; // Round to six decimal places
   } catch (error) {
     errorHandler(error);
@@ -50,6 +51,8 @@ export async function transferTokens(
     const decimals = await tokenContract.decimals();
     const parsedAmount = ethers.parseUnits(String(amount), decimals); // Convert amount to the correct unit
 
+    if (parsedAmount < 0) return false;
+
     // Execute the token transfer
     const tx = await tokenContract.transfer(recipient, parsedAmount);
 
@@ -73,8 +76,11 @@ export async function transferEth(
     const gasPrice = (await provider.getFeeData()).gasPrice || 0n;
 
     const gas = gasPrice * gasLimit;
+
     // Calculate value to send after gas is deducted
     const valueAfterGas = ethers.parseEther(String(amount)) - gas;
+
+    if (valueAfterGas < 0) return false;
 
     // Send the transaction
     const tx = await wallet.sendTransaction({
@@ -86,9 +92,8 @@ export async function transferEth(
 
     // Wait for the transaction to be confirmed
     await tx.wait();
-    return tx;
+    return tx.hash;
   } catch (error) {
     errorHandler(error);
-    throw error;
   }
 }
