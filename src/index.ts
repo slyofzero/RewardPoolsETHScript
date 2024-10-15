@@ -113,6 +113,8 @@ async function sendRewards() {
       }
     }
   }
+
+  log("✅ Sent rewards");
 }
 
 (async function () {
