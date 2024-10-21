@@ -31,9 +31,13 @@ export async function sendReward(req: Request, res: Response) {
     getTokenBalance(address, poolData.token),
   ]);
   const holding = (addressBalance / (tokenData?.totalSupply || 0)) * 100;
-  let rewardPercentage = holding / (poolData.maxClaim / 100);
+
+  let rewardPercentage = holding / (pool.maxClaim / 100);
   rewardPercentage = rewardPercentage > 100 ? 100 : rewardPercentage;
-  const reward = (rewardPercentage / 100) * poolData.size;
+
+  let reward = (rewardPercentage / 100) * pool.size;
+  reward =
+    reward > pool.size - pool.claimed ? pool.size - pool.claimed : reward;
 
   const jobData: JobData = {
     address,
