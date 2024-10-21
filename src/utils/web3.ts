@@ -4,6 +4,29 @@ import { provider } from "@/rpc";
 import { errorHandler } from "./handlers";
 import { decrypt } from "./cryptography";
 
+export async function getTokenDetails(tokenAddress: string) {
+  try {
+    const contract = new ethers.Contract(tokenAddress, erc20Abi, provider);
+
+    // Fetch name and symbol from the token contract
+    const [name, symbol, decimals, totalSupply] = await Promise.all([
+      contract.name(),
+      contract.symbol(),
+      contract.decimals(),
+      contract.totalSupply(),
+    ]);
+
+    const formattedSupply = parseFloat(
+      ethers.formatUnits(totalSupply, decimals)
+    );
+
+    return { name, symbol, totalSupply: formattedSupply };
+  } catch (error) {
+    // eslint-disable-next-line
+    console.error("Error fetching token details:", error);
+  }
+}
+
 export async function getTokenBalance(
   address: string,
   token: string
@@ -52,7 +75,6 @@ export async function transferTokens(
     const parsedAmount = ethers.parseUnits(String(amount), decimals); // Convert amount to the correct unit
 
     if (parsedAmount < 0) return false;
-
     // Execute the token transfer
     const tx = await tokenContract.transfer(recipient, parsedAmount);
 

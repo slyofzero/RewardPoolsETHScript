@@ -2,13 +2,13 @@ import { Timestamp } from "firebase-admin/firestore";
 import { pools, syncPools } from "./state";
 import { getDocument, updateDocumentById } from "./firebase";
 import { StoredPool, StoredStakes } from "./types";
-import {
-  getEthBalance,
-  getTokenBalance,
-  transferEth,
-  transferTokens,
-} from "./utils/web3";
+import { getEthBalance, getTokenBalance, transferTokens } from "./utils/web3";
 import { log } from "./utils/handlers";
+import express, { Request, Response } from "express";
+import { getJobStatus, sendReward } from "./path/sendReward";
+import { PORT } from "./utils/env";
+
+const app = express();
 
 async function sendRewards() {
   log("Sending rewards...");
@@ -31,7 +31,7 @@ async function sendRewards() {
 
       // Close the pool if all stakes have been rewarded
       if (stakes.length === 0) {
-        const [poolBalance, remainingEthBalance] = await Promise.all([
+        const [poolBalance] = await Promise.all([
           getTokenBalance(poolData.pool, poolData.token),
           getEthBalance(poolData.pool),
         ]);
@@ -80,36 +80,6 @@ async function sendRewards() {
         //     });
         //   }
         // }
-      } else {
-        // Reward the stake if it hasn't been rewarded yet
-        for (const stake of stakes) {
-          const reward = parseFloat((stake.amount * (poolData.reward / 100)).toFixed(4)) // prettier-ignore
-          const totalAmount = stake.amount + reward;
-
-          log(`${stake.user} staked ${stake.amount} for ${stake.pool}, they'd receive ${totalAmount}`); // prettier-ignore
-
-          const txn = await transferTokens(
-            poolData.mnemonicPhrase,
-            stake.user,
-            poolData.token,
-            totalAmount
-          );
-
-          if (txn) {
-            updateDocumentById<StoredStakes>({
-              collectionName: "stakes",
-              id: stake.id || "",
-              updates: {
-                status: "REWARDED",
-                rewardTxn: txn,
-              },
-            });
-
-            log(
-              `Stake ${stake.id} for pool ${poolId} was rewarded ${totalAmount}`
-            );
-          }
-        }
       }
     }
   }
@@ -118,6 +88,19 @@ async function sendRewards() {
 }
 
 (async function () {
+  app.use(express.json());
+
+  app.get("/ping", (req: Request, res: Response) => {
+    return res.json({ message: "Server is up" });
+  });
+
+  app.get("/jobStatus", getJobStatus);
+  app.post("/sendReward", sendReward);
+
+  app.listen(PORT, () => {
+    log(`Server is running on port ${PORT}`);
+  });
+
   await sendRewards();
   setInterval(async () => await sendRewards(), 10 * 60 * 1e3);
 })();

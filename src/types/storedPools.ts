@@ -4,13 +4,15 @@ export interface StoredPool {
   name: string;
   token: string;
   size: number;
-  reward: number;
-  duration: number;
   pool: string;
+  duration: number;
+  maxClaim: number;
+  minHolding: number;
   tokenSymbol: string;
   tokenName: string;
   mnemonicPhrase: string;
   staked: number;
+  claimed: number;
   createdOn: Timestamp;
   closesAt: Timestamp;
   status: "PENDING" | "ACTIVE" | "CLOSED";

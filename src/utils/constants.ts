@@ -1,4 +1,4 @@
-export const firebaseCollectionPrefix = "_husby";
+export const firebaseCollectionPrefix = "_rewardpools";
 export const gasLimit = 21000n;
 
 export const erc20Abi = [

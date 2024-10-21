@@ -5,6 +5,7 @@ declare global {
       FIREBASE_KEY: string | undefined;
       RPC_URL: string | undefined;
       ENCRYPTION_KEY: string | undefined;
+      PORT: string | undefined;
     }
   }
 }

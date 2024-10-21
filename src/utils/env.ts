@@ -5,4 +5,4 @@ dotenv.config({
   path: NODE_ENV === "development" ? ".env" : ".env.production",
 });
 
-export const { FIREBASE_KEY, RPC_URL, ENCRYPTION_KEY } = process.env;
+export const { FIREBASE_KEY, RPC_URL, ENCRYPTION_KEY, PORT } = process.env;
