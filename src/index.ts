@@ -7,6 +7,9 @@ import { log } from "./utils/handlers";
 import express, { Request, Response } from "express";
 import { getJobStatus, sendReward } from "./path/sendReward";
 import { PORT } from "./utils/env";
+import { pools, syncPools } from "./state";
+import { updateDocumentById } from "./firebase";
+import { StoredPool } from "./types";
 
 const app = express();
 
@@ -87,7 +90,27 @@ const app = express();
 //   log("✅ Sent rewards");
 // }
 
+async function checkPools() {
+  log("Checking pools...");
+  await Promise.all([syncPools()]);
+
+  for (const poolData of pools) {
+    const { gasDepositTxn, rewardsDepositTxn, status } = poolData;
+    if (gasDepositTxn && rewardsDepositTxn && status === "PENDING") {
+      updateDocumentById<StoredPool>({
+        collectionName: "pools",
+        id: poolData.id || "",
+        updates: { status: "ACTIVE" },
+      });
+      log(`Activated Pool ${poolData.id}`);
+    }
+  }
+}
+
 (async function () {
+  await checkPools();
+  setInterval(async () => await checkPools(), 10 * 60 * 1e3);
+
   app.use(express.json());
 
   app.get("/ping", (req: Request, res: Response) => {
